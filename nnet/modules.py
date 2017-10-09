@@ -30,8 +30,8 @@ def bias_init(shape, name=None):
 	return b
 
 
-def conv2d(input, is_training, kernel, stride=1, 
-	name=None, use_batch_norm=False, reuse=None):
+def conv2d(input, , kernel, stride=1, name=None,
+	is_training=False, use_batch_norm=False, reuse=False):
 	
 	"""
 	2D convolution layer with relu activation
@@ -40,7 +40,7 @@ def conv2d(input, is_training, kernel, stride=1,
 	if name is None:
 		name='2d_convolution'
 
-	with tf.variable_scope(name):
+	with tf.variable_scope(name, reuse=reuse):
 		W = weight_init(kernel, 'W')
 		b = bias_init(kernel[3], 'b')	
 
@@ -54,8 +54,8 @@ def conv2d(input, is_training, kernel, stride=1,
 			return tf.nn.relu(output)
 
 
-def deconv(input, is_training, kernel, stride=1, 
-	name=None, reuse=None):
+def deconv(input, kernel, stride=1, name=None,
+	is_training=False, reuse=False):
 	
 	"""
 	2D convolution layer with relu activation
@@ -64,7 +64,7 @@ def deconv(input, is_training, kernel, stride=1,
 	if name is None:
 		name='de_convolution'
 
-	with tf.variable_scope(name):
+	with tf.variable_scope(name, reuse):
 		W = weight_init(kernel, 'W')
 		b = bias_init(kernel[3], 'b')	
 
@@ -88,7 +88,7 @@ def max_pool(input, kernel=3, stride=2, name=None):
 	return output
 
 
-def fully_connected_linear(input, output, name=None, reuse=None):
+def fully_connected_linear(input, output, name=None, reuse=False):
 	"""
 	Fully-connected linear activations
 	"""
@@ -96,8 +96,8 @@ def fully_connected_linear(input, output, name=None, reuse=None):
 	if name is None:
 		name='fully_connected_linear'
 
-	with tf.variable_scope(name):
-		shape = input.get_shape()
+	with tf.variable_scope(name, reuse):
+		shape = input.get_shape().as_list()
 		input_units = int(shape[1])
 
 		W = weight_init([input_units, output], 'W')
@@ -108,7 +108,7 @@ def fully_connected_linear(input, output, name=None, reuse=None):
 
  
 def fully_connected(input, output, is_training, activation=tf.nn.relu, name=None, 
-	use_batch_norm=False, reuse=None):
+	use_batch_norm=False, reuse=False):
 	
 	"""
 	Fully-connected layer with induced non-linearity of 'relu'
@@ -117,17 +117,16 @@ def fully_connected(input, output, is_training, activation=tf.nn.relu, name=None
 	if name is None:
 		name='fully_connected'
 
-	with tf.variable_scope(name):
-		linear_output = fully_connected_linear(input=input, output=output)
+	linear_output = fully_connected_linear(input=input, output=output, name=name, reuse=reuse)
 
-		if activation is None:
-			return linear_output
+	if activation is None:
+		return linear_output
+	else:
+		if use_batch_norm:
+			output = activation(batch_norm(linear_output, is_training=is_training))
+			return output
 		else:
-			if use_batch_norm:
-				output = activation(batch_norm(linear_output, is_training=is_training))
-				return output
-			else:
-				return activation(linear_output)
+			return activation(linear_output)
 
 
 def dropout_layer(input, keep_prob=0.5, name=None):
