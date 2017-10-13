@@ -30,7 +30,7 @@ def bias_init(shape, name=None):
 	return b
 
 
-def conv2d(input, , kernel, stride=1, name=None,
+def conv2d(input, kernel, stride=1, name=None,
 	is_training=False, use_batch_norm=False, reuse=False):
 	
 	"""
@@ -54,8 +54,8 @@ def conv2d(input, , kernel, stride=1, name=None,
 			return tf.nn.relu(output)
 
 
-def deconv(input, kernel, stride=1, name=None,
-	is_training=False, reuse=False):
+def deconv(input, kernel, output_shape, stride=1, name=None,
+	activation=None, is_training=False, reuse=False):
 	
 	"""
 	2D convolution layer with relu activation
@@ -69,8 +69,12 @@ def deconv(input, kernel, stride=1, name=None,
 		b = bias_init(kernel[3], 'b')	
 
 		strides=[1, stride, stride, 1]
-		activation = tf.nn.conv2d_transpose(input=input, filter=W, strides=strides)
-		output = activation + b
+		output = tf.nn.conv2d_transpose(value=input, filter=W, output_shape=output_shape, strides=strides)
+		
+		if activation is None:
+			return output
+		else:
+			return activation(output)
 
 
 def max_pool(input, kernel=3, stride=2, name=None):
@@ -97,7 +101,7 @@ def fully_connected_linear(input, output, name=None, reuse=False):
 		name='fully_connected_linear'
 
 	with tf.variable_scope(name, reuse):
-		shape = input.get_shape().as_list()
+		shape = input.get_shape()
 		input_units = int(shape[1])
 
 		W = weight_init([input_units, output], 'W')
