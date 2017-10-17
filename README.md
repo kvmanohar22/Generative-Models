@@ -9,20 +9,20 @@ This experiment is accompanied by blog post at : [https://kvmanohar22.github.io/
 - Download the MNIST and CIFAR datasets
 
 #### Train VAE on mnist by running:
-```python
+```bash
 
 python --model vae --dataset mnist
 ```
 #### Train GAN on mnist by running:
 
-```python
+```bash
 
 python --model gan --dataset mnist
 ```
 
 For the complete list of command line options, run:
 
-```python
+```bash
 python main.py --help
 ```
 
