@@ -22,9 +22,9 @@ tf.app.flags.DEFINE_string('model', 'vae', """vae or gan""")
 # Data
 tf.app.flags.DEFINE_string('root_dir', '/users/TeamVideoSummarization/gsoc/Generative-models/', """Base Path""")
 tf.app.flags.DEFINE_string('dataset_dir', 'data/', """Path to data""")
-tf.app.flags.DEFINE_integer('image_size_h', 32, """Shape of image height""")
-tf.app.flags.DEFINE_integer('image_size_w', 32, """Shape of image width""")
-tf.app.flags.DEFINE_integer('channels', 3, """Number of input channels of images""")
+tf.app.flags.DEFINE_integer('image_size_h', 28, """Shape of image height""")
+tf.app.flags.DEFINE_integer('image_size_w', 28, """Shape of image width""")
+tf.app.flags.DEFINE_integer('channels', 1, """Number of input channels of images""")
 tf.app.flags.DEFINE_string('dataset', "mnist", """mnist or CIFAR""")
 
 # Training
@@ -38,15 +38,15 @@ tf.app.flags.DEFINE_integer('test_size', 64, """Number of images to sample durin
 tf.app.flags.DEFINE_integer('display', 60, """Display log of progress""")
 tf.app.flags.DEFINE_float('lr_decay', 0.9, """Learning rate decay factor""")
 tf.app.flags.DEFINE_float('base_lr', 1e-6, """Base learning rate for VAE""")
-tf.app.flags.DEFINE_float('D_base_lr', 1e-6, """Base learning rate for Discriminator""")
-tf.app.flags.DEFINE_float('G_base_lr', 1e-6, """Base learning rate for Generator""")
+tf.app.flags.DEFINE_float('D_base_lr', 1e-5, """Base learning rate for Discriminator""")
+tf.app.flags.DEFINE_float('G_base_lr', 1e-5, """Base learning rate for Generator""")
 tf.app.flags.DEFINE_float('D_lambda', 1, """How much to weigh in Decoder loss""")
 tf.app.flags.DEFINE_float('G_lambda', 1, """How much to weigh in Generator loss""")
 
 
 # Architecture
 tf.app.flags.DEFINE_integer('encoder_vec_size', 100, """Encoder vector size for VAE""")
-tf.app.flags.DEFINE_integer('latent_shape', 100, """Latent code length in case of GAN""")
+tf.app.flags.DEFINE_integer('code_len', 100, """Latent code length in case of GAN""")
 tf.app.flags.DEFINE_integer('g_dims', 64, """Number of kernels for the first convolutional lalyer in the network""")
 
 # Model Saving
@@ -59,7 +59,10 @@ tf.app.flags.DEFINE_integer('grid_w', 8, """Grid width while saving images""")
 
 def main(_):
 	print 'Beginning Run'
-	net = nnet.VAE(FLAGS, True)
+	if FLAGS.model == "vae":
+		net = nnet.VAE(FLAGS, True)
+	else:
+		net = nnet.GAN(FLAGS, True)
 	print 'Training the network...'
 	net.train()
 	print 'Done training the network...\n'

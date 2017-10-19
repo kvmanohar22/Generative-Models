@@ -9,44 +9,143 @@ from utils import Dataset
 
 class GAN(object):
 
-	def __init__(self, image, opts, reuse=False, is_training=False):
-		self.image = image
-		self.reuse = reuse
-		self.is_training = is_training
+	def __init__(self, opts, is_training=False):
+		self.h = opts.image_size_h
+		self.w = opts.image_size_w
+		self.c = opts.channels
 		self.opts = opts
-		self.dims = opts.d_dims
-		self.pred = self.Discriminator()
-		self.generated_imgs = self.Generator()
+		self.images = tf.placeholder(tf.float32, [None, self.h, self.w, self.c], "images")
+		self.code = tf.placeholder(tf.float32, [None, self.opts.code_len], "code")
+		self.D_lr = tf.placeholder(tf.float32, [], "D_learning_rate")
+		self.G_lr = tf.placeholder(tf.float32, [], "G_learning_rate")
+		self.is_training = is_training
+		self.generated_imgs = self.Generator(self.code)
+		self.true_logit = self.Discriminator(self.images, reuse=False)
+		self.fake_logit = self.Discriminator(self.generated_imgs, reuse=True)
+		self.d_loss, self.g_loss = self.loss()
 
-	def Discriminator(self):
+		self.sess = tf.Session()
+		with tf.variable_scope("Optimizers"):
+			self.D_optimizer = tf.train.AdamOptimizer(self.D_lr).minimize(self.d_loss)
+			self.G_optimizer = tf.train.AdamOptimizer(self.G_lr).minimize(self.g_loss)
+		self.init = tf.global_variables_initializer()
+		self.saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
+		tf.summary.scalar('Discriminator loss: ', self.d_loss)
+		tf.summary.scalar('Generator loss', self.g_loss)
+		tf.summary.scalar('Discriminator Learning Rate', self.D_lr)
+		tf.summary.scalar('Generator Learning Rate', self.G_lr)
+		tf.summary.image('Generated image', self.generated_imgs, max_outputs=4)
+		self.summaries = tf.summary.merge_all()
+		self.writer = tf.summary.FileWriter(self.opts.root_dir+self.opts.summary_dir, self.sess.graph)
+
+
+	def Discriminator(self, data, reuse=False):
 		"""
 		Discriminator part of GAN
 		"""
 
-		with tf.variable_scope("discriminator"):
-			conv1 = model.conv2d(self.image, [5,5,3,self.dims], 2, "conv1", is_training, False, self.reuse)
-			conv2 = model.conv2d(conv1, [3,3,self.dims,self.dims*2], 2, "conv2", is_training, True, self.reuse)
-			conv3 = model.conv2d(conv2, [3,3,self.dims*2,self.dims*4], 2, "conv3", is_training, True, self.reuse)
-			full4 = model.fully_connected(tf.reshape(conv3, [self.opts.batch_size, -1]), 1, is_training, None, "full4", False, self.reuse)
-		return tf.nn.softmax(full4), full4
+		if self.opts.dataset == "CIFAR":
+			with tf.variable_scope("discriminator"):
+				conv1 = model.conv2d(data, [5,5,3,self.dims], 2, "conv1", is_training, False, reuse=reuse)
+				conv2 = model.conv2d(conv1, [3,3,self.dims,self.dims*2], 2, "conv2", is_training, True, reuse=reuse, use_batch_norm=True)
+				conv3 = model.conv2d(conv2, [3,3,self.dims*2,self.dims*4], 2, "conv3", is_training, True, reuse=reuse, use_batch_norm=True)
+				full4 = model.fully_connected(tf.reshape(conv3, [self.opts.batch_size, -1]), 1, is_training, None, "full4", False, reuse=reuse)
+				return full4
+		else:
+			with tf.variable_scope("discriminator"):
+				dims = 64
+				conv1 = model.conv2d(data, [3, 3, self.c, dims], 2, "conv1", alpha=0.2, use_leak=True, bias_constant=0.01, reuse=reuse) # 14x14x64
+				conv2 = model.conv2d(conv1, [3, 3, dims, dims * 2], 2, "conv2", alpha=0.2, use_leak=True, bias_constant=0.01, reuse=reuse, use_batch_norm=False, is_training=self.is_training) # 7x7x128
+				conv3 = model.conv2d(conv2, [3, 3, dims*2, dims * 4], 2, "conv3", alpha=0.2, use_leak=True, bias_constant=0.01, reuse=reuse, use_batch_norm=False, is_training=self.is_training) # 4x4x256
+				output = model.fully_connected(tf.reshape(conv3, [-1, 4*4*256]), 1, self.is_training, activation=None, name="output", bias_constant=0.01, reuse=reuse) # 1
+				return output
 
-	def Generator(self):
+
+	def Generator(self, code, reuse=False):
 		"""
 		Generator part of GAN
 		"""
 
-		with tf.variable_scope("generator"):
-			fulll1 = model.fully_connected(self.z, self.dims*4*4*4, is_training, tf.nn.relu, "full1", False, self.reuse)
-			dconv2 = model.deconv(tf.reshape(fulll1, [-1, 4, 4, self.dims*4]), [8, 8, self.dims*2, self.dims*4], 2, "dconv2", is_training, False)
-			dconv3 = model.deconv(dconv2, [16, 16, self.dims, self.dims*2], 2, "dconv3", is_training, False)
-			dconv4 = model.deconv(dconv3, [32, 32, self.dims, 3], 2, "dconv4", is_training, False)
-		return tf.nn.tanh(dconv4)
+		if self.opts.dataset == "CIFAR":
+			with tf.variable_scope("generator"):
+				fulll1 = model.fully_connected(code, self.dims*4*4*4, is_training, tf.nn.relu, "full1", False, reuse=reuse, use_batch_norm=True)
+				dconv2 = model.deconv(tf.reshape(fulll1, [-1, 4, 4, self.dims*4]), [8, 8, self.dims*2, self.dims*4], 2, "dconv2", is_training, False, reuse=reuse, use_batch_norm=True)
+				dconv3 = model.deconv(dconv2, [16, 16, self.dims, self.dims*2], 2, "dconv3", is_training, False, reuse=reuse, use_batch_norm=True)
+				dconv4 = model.deconv(dconv3, [32, 32, self.dims, 3], 2, "dconv4", is_training, False, reuse=reuse)
+				return tf.nn.tanh(dconv4)
+		else:
+			with tf.variable_scope("generator"):
+				full1 = model.fully_connected(code, 4*4*256, self.is_training, tf.nn.relu, "full1", reuse=reuse, use_batch_norm=True, initializer=tf.truncated_normal_initializer(stddev=0.2))
+				dconv2 = model.deconv(tf.reshape(full1, [-1, 4, 4, 256]), [3,3,128,256], [self.opts.batch_size, 7, 7, 128], 2, "dconv2", tf.nn.relu, initializer=tf.truncated_normal_initializer(stddev=0.2),
+									  bias_constant=0.0, reuse=reuse, use_batch_norm=True, is_training=self.is_training)
+				dconv3 = model.deconv(dconv2, [3,3,64,128], [self.opts.batch_size, 14, 14, 64], 2, "dconv3", None, initializer=tf.truncated_normal_initializer(stddev=0.2),\
+									  bias_constant=0.0, reuse=reuse, use_batch_norm=True, is_training=self.is_training)
+				dconv4 = model.deconv(dconv3, [3,3,1,64], [self.opts.batch_size, 28, 28, 1], 2, "output", None, initializer=tf.truncated_normal_initializer(stddev=0.2),\
+									  bias_constant=0.0, reuse=reuse)
+				return tf.nn.sigmoid(dconv4)
+
 
 	def loss(self):
-		pass
+		with tf.variable_scope("loss"):
+			true_prob = tf.nn.sigmoid(self.true_logit)
+			fake_prob = tf.nn.sigmoid(self.fake_logit)
+			with tf.variable_scope("D_loss"):
+				# d_true_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.true_logit, labels=tf.ones_like(self.true_logit)))
+				# d_fake_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.fake_logit, labels=tf.zeros_like(self.fake_logit)))
+				d_loss = tf.reduce_mean(-tf.log(true_prob)-tf.log(1-fake_prob))
+				# d_loss = d_fake_loss+d_true_loss
+			with tf.variable_scope("G_loss"):
+				# g_loss    = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.fake_logit, labels=tf.ones_like(self.fake_logit)))
+				g_loss = tf.reduce_mean(-tf.log(fake_prob))
+			return d_loss, g_loss
+
 
 	def train(self):
-		pass
+		code = np.random.uniform(low=-1.0, high=1.0, size=[self.opts.batch_size, self.opts.code_len]).astype(np.float32)
+		utils = Dataset(self.opts)
+		D_lr = self.opts.D_base_lr
+		G_lr = self.opts.G_base_lr
+		self.sess.run(self.init)
+		for iteration in xrange(1, self.opts.MAX_iterations):
+			batch_num = 0
+			for batch_begin, batch_end in zip(xrange(0, self.opts.train_size, self.opts.batch_size), \
+				xrange(self.opts.batch_size, self.opts.train_size, self.opts.batch_size)):
+				begin_time = time.time()
+				batch_imgs = utils.load_batch(batch_begin, batch_end)
+				noise = np.random.uniform(low=-1.0, high=1.0, size=[self.opts.batch_size, self.opts.code_len]).astype(np.float32)
+
+				# Real data
+				feed_dict = {self.images:batch_imgs, self.D_lr:D_lr, self.G_lr:G_lr, self.code:noise}
+				_, D_loss = self.sess.run([self.D_optimizer, self.d_loss], feed_dict=feed_dict)
+				# Fake data
+				feed_dict = {self.images:batch_imgs, self.D_lr:D_lr, self.G_lr:G_lr, self.code:noise}
+				_, G_loss, summary = self.sess.run([self.G_optimizer, self.g_loss, self.summaries], feed_dict=feed_dict)
+
+				batch_num += 1
+				self.writer.add_summary(summary, iteration * (self.opts.train_size/self.opts.batch_size) + batch_num)
+				if batch_num % self.opts.display == 0:
+					rem_time = (time.time() - begin_time) * self.opts.MAX_iterations * (self.opts.train_size/self.opts.batch_size)
+					log  = '-'*20
+					log += '\nIteration: {}/{}|'.format(iteration, self.opts.MAX_iterations)
+					log += ' Batch Number: {}/{}|'.format(batch_num, self.opts.train_size/self.opts.batch_size)
+					log += ' Batch Time: {}\n'.format(time.time() - begin_time)
+					log += ' Remaining Time: {:0>8}\n'.format(datetime.timedelta(seconds=rem_time))
+					log += ' D_lr: {} D_loss: {}\n'.format(D_lr, D_loss)
+					log += ' G_lr: {} G_loss: {}\n'.format(G_lr, G_loss)
+					print log
+				if iteration % self.opts.lr_decay == 0 and batch_num == 1:
+					D_lr *= self.opts.lr_decay_factor
+					G_lr *= self.opts.lr_decay_factor
+				if iteration % self.opts.ckpt_frq == 0 and batch_num == 1:
+					self.saver.save(self.sess, self.opts.root_dir+self.opts.ckpt_dir+"{}_{}_{}_{}".format(iteration, D_lr, G_lr, D_loss+G_loss))
+				if iteration % self.opts.generate_frq == 0 and batch_num == 1:
+					feed_dict = {self.code: code}
+					imgs = self.sess.run(self.generated_imgs, feed_dict=feed_dict)
+					if self.opts.dataset == "CIFAR":
+						imgs = np.reshape(imgs, (self.opts.test_size, 3, 32, 32)).transpose(0, 2, 3, 1)
+					else:
+						imgs = np.reshape(imgs, (self.opts.test_size, 28, 28))
+					utils.save_batch_images(imgs, [self.opts.grid_h, self.opts.grid_w], str(iteration)+".jpg", True)
 
 
 class VAE(object):

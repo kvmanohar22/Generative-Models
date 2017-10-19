@@ -18,7 +18,10 @@ class Dataset(object):
 			self.images = np.reshape(imgs, (10000, 3, 32, 32)).transpose(0, 2, 3, 1).astype('uint8')
 			self.test_images = np.zeros((self.opts.test_size, 32, 32, 3))
 			self.images = self.images.astype('float')
-			self.images /= 255.0
+			if self.opts.model == "vae":
+				self.images /= 255.0
+			else:
+				self.images = self.images / 127.5 - 1.
 			np.random.shuffle(self.images)
 			self.test_images = self.images[:self.opts.test_size, :, :, :]
 		else:
@@ -37,8 +40,10 @@ class Dataset(object):
 	def save_batch_images(self, images, grid, img_file, normalized=False):
 		h = images.shape[1]
 		w = images.shape[2]
-		if normalized:
-			images = images * 255.0
+		# if normalized and self.opts.model != 'gan':
+		# 	images = images * 255.0
+		# elif normalized and self.opts.model == 'gan':
+		# 	images = images * 127.5 + 127.5
 		num = images.shape[0]
 		if self.opts.dataset == "CIFAR":
 			imgs = np.zeros((h * grid[0], h * grid[1], self.opts.channels))
