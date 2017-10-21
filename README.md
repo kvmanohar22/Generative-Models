@@ -34,11 +34,11 @@ Sample images from MNIST data is :
 
 <img src="images/target_mnist.jpg" width="55%" align="center">
 
-GIF showing images generated from GAN as a function of epochs is as follows:
+On the left is image generated from VAE and on the right is GIF showing images generated from GAN as a function of epochs:
 
-![](http://kvfrans.com/content/images/2017/03/Screen-Shot-2017-03-01-at-11-09-09-PM-1.png)
+![](images/vae.jpg)
 
-![](http://kvfrans.com/content/images/2017/03/Screen-Shot-2017-03-01-at-11-09-13-PM.png)
+![](images/gan.gif)
 
 <img align="center" src="images/gan.gif">
 
