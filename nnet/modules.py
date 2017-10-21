@@ -187,4 +187,13 @@ def leaky_relu(input, alpha=0.2, name="lrelu"):
 	Leaky ReLU
 	"""
 	with tf.variable_scope(name):
-		return tf.maximum(input, alpha * input)
+		o1 = 0.5 * (1 + alpha)
+		o2 = 0.5 * (1 - alpha)
+		return o1 * input + o2 * abs(input)
+
+
+def histogram(input_tensor, name=None):
+	"""
+	Generate histogram distribution of input
+	"""
+	return tf.summary.histogram(name, input_tensor)
