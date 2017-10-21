@@ -32,14 +32,11 @@ The model generates images at a frequence specified by `generate_frq` which is b
 
 Sample images from MNIST data is :
 
-<img src="images/target_mnist.jpg" width="55%" align="center">
+<img src="images/target_mnist.jpg" align="center">
 
-On the left is image generated from VAE and on the right is GIF showing images generated from GAN as a function of epochs:
+**On the left** is image generated from **VAE** and on the **right** is GIF showing images generated from **GAN** as a function of epochs:
 
 ![](images/vae.jpg)
-
 ![](images/gan.gif)
-
-<img align="center" src="images/gan.gif">
 
 For examples and explanation, have a look at the [blog post](https://kvmanohar22.github.io/Generative-Models).
