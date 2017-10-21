@@ -30,12 +30,15 @@ The model generates images at a frequence specified by `generate_frq` which is b
 
 ## Results of training GAN on mnist
 
-Sample images from mnist data is :
+Sample images from MNIST data is :
 
-~[](images/target_mnist.jpg)
-<img align="center" src="images/target_mnist.jpg">
+<img src="images/target_mnist.jpg" width="55%" align="center">
 
 GIF showing images generated from GAN as a function of epochs is as follows:
+
+![](http://kvfrans.com/content/images/2017/03/Screen-Shot-2017-03-01-at-11-09-09-PM-1.png)
+
+![](http://kvfrans.com/content/images/2017/03/Screen-Shot-2017-03-01-at-11-09-13-PM.png)
 
 <img align="center" src="images/gan.gif">
 
