@@ -112,11 +112,12 @@ def max_pool(input, kernel=3, stride=2, name=None):
 	if name is None: 
 		name='max_pool'
 
-	ksize = [1, kernel, kernel, 1]
-	strides = [1, stride, stride, 1]
-	output = tf.nn.max_pool(input, ksize=ksize, strides=strides, padding='SAME')
+	with tf.variable_scope(name):
+		ksize = [1, kernel, kernel, 1]
+		strides = [1, stride, stride, 1]
+		output = tf.nn.max_pool(input, ksize=ksize, strides=strides, padding='SAME')
 
-	return output
+		return output
 
 
 def fully_connected_linear(input, output, name=None, reuse=False,
@@ -128,15 +129,15 @@ def fully_connected_linear(input, output, name=None, reuse=False,
 	if name is None:
 		name='fully_connected_linear'
 
-	with tf.variable_scope(name, reuse):
-		shape = input.get_shape()
-		input_units = int(shape[1])
 
-		W = weight_init([input_units, output], 'W', initializer)
-		b = bias_init([output], 'b', bias_constant)
+	shape = input.get_shape()
+	input_units = int(shape[1])
 
-		output = tf.add(tf.matmul(input, W), b)
-		return output
+	W = weight_init([input_units, output], 'W', initializer)
+	b = bias_init([output], 'b', bias_constant)
+
+	output = tf.add(tf.matmul(input, W), b)
+	return output
 
  
 def fully_connected(input, output, is_training, activation=tf.nn.relu, 
@@ -150,22 +151,23 @@ def fully_connected(input, output, is_training, activation=tf.nn.relu,
 	if name is None:
 		name='fully_connected'
 
-	output = fully_connected_linear(input=input, output=output, name=name, reuse=reuse,
-		initializer=initializer, bias_constant=bias_constant)
+	with tf.variable_scope(name, reuse=reuse):
+		output = fully_connected_linear(input=input, output=output, name=name, reuse=reuse,
+			initializer=initializer, bias_constant=bias_constant)
 
-	if activation is None:
-		return output
-	else:
-		if use_batch_norm:
-			if use_leak:
-				return leaky_relu(batch_norm(output, is_training=is_training), alpha)
-			else:
-				return activation(batch_norm(output, is_training=is_training))
+		if activation is None:
+			return output
 		else:
-			if use_leak:
-				return leaky_relu(output, alpha)
+			if use_batch_norm:
+				if use_leak:
+					return leaky_relu(batch_norm(output, is_training=is_training), alpha)
+				else:
+					return activation(batch_norm(output, is_training=is_training))
 			else:
-				return activation(output)
+				if use_leak:
+					return leaky_relu(output, alpha)
+				else:
+					return activation(output)
 
 
 def dropout_layer(input, keep_prob=0.5, name=None):
@@ -175,12 +177,23 @@ def dropout_layer(input, keep_prob=0.5, name=None):
 	if name is None:
 		name='Dropout'
 
-	output = tf.nn.dropout(input, keep_prob=keep_prob)
-	return output
+	with tf.variable_scope(name):
+		output = tf.nn.dropout(input, keep_prob=keep_prob)
+		return output
 
 
 def leaky_relu(input, alpha=0.2, name="lrelu"):
 	"""
 	Leaky ReLU
 	"""
-	return tf.maximum(input, alpha * input)
+	with tf.variable_scope(name):
+		o1 = 0.5 * (1 + alpha)
+		o2 = 0.5 * (1 - alpha)
+		return o1 * input + o2 * abs(input)
+
+
+def histogram(input_tensor, name=None):
+	"""
+	Generate histogram distribution of input
+	"""
+	return tf.summary.histogram(name, input_tensor)
